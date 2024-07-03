@@ -18,4 +18,19 @@ class DependencyInjectionTest extends TestCase
         self::assertEquals("Foo and Bar", $bar->bar());
 
     }
+
+    public function testDependencyInjection2()
+    {
+        $this->app->singleton(Foo::class, function ($app){
+            return new Foo();
+        });
+
+        $foo = $this->app->make(Foo::class);
+        $bar = $this->app->make(Bar::class);
+
+        self::assertEquals("Foo and Bar", $bar->bar());
+        self::assertSame($foo, $bar->foo);
+        
+    }
+
 }
