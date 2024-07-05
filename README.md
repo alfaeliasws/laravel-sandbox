@@ -347,7 +347,92 @@ public array $singletons = [
 - It will make every service provider loaded only when it is used
 - It is like lazy load
 - The best use when the service providers are many
- 
+ ### FACADES
+- Facades provides static access to the Service Container or Application
+- It will be use when we code not in the scope of laravel codes
+- Namespace: Illuminate/Support/Facades
+- Use Dependency Injection as priority, don't use facades too frequent
+- Helper functions means calling facades
+- Testing will be easier when we are using facades
+```php
+//using facades
+$firstName2 = Config::get('contoh.author.first');
+$firstName3 = config("contoh.author.first");
+// not using facades
+$firstName = $config->get("contoh.author.first");
+```
+#### FACADES MOCK
+- In Laravel there are facades mock that can be used for mock data
+ ```php
+ //example using mock
+ Config::shouldReceive('get')
+	->with("contoh.author.first")
+	->andReturn("Mike Mozawski");
+	//this won't get data that is inside the real config, only creates the mock one
+```
+### ROUTING
+- Service Provider for routing: RouteServiceProvider
+- It will execute route folder
+- Route implementation that is easy is path and closure
+```php
+Route::get($uri,$callback);
+//Change get with other method (post, put, patch, delete, options)
+```
+- unit test
+```php
+public function testBasicRouting()
+{
+	$this->get("/johntakpor")
+		->assertStatus(200)
+		->assertSeeText("Hello Johntakpor");
+}
+```
+#### REDIRECT
+```php
+Route::redirect('/youtube', '/johntakpor')
+```
+- To see list use ```php artisan route:list ```
+ #### FALLBACK ROUTE
+- To return the error 404
+```php
+Route::fallback(function () {
+	return 404;
+})
+``` 
+### VIEW
+- Using blade templating
+- In app/resources/view
+- Don't put logic in the blade view
+- To get variable in blade template we could use ```{{ $ variableName }}```
+- To render view, in routes, we must use ```Route::view(uri, template, array)``` or we can use closure view(template, array)
+- Template is the name of the template that is not blade file, and array is filled with the variable data that we will use
+```php
+Route::view("/hello", "hello",  ["name" => "hello"]);
+
+Route::get("/hello-again", function () {
+    return view("hello", [ "name" => "Johnson"]);
+});
+```
+- unit test is the same with assertSeeText
+#### NESTED VIEW 
+- Put the blade file in the folder inside the view folder (example: resources/view/nester/nested.blade.php)
+- To accesss it, we don't use the slash (/) but use the dot ("nester.nested")
+#### COMPILED VIEW
+- View in laravel is compiled when the request goes in or when there are changes in the blade file
+- But it will make the view loaded longer because of it
+- It will be better especially in production for us to compile the view first
+- The command is ``` php artisan view:cache ```
+- It will make the load faster
+- To remove the compiled file, we use ``` php artisan view:clear ```
+#### TEST VIEW WITHOUT ROUTE
+- We can test view without route
+### STATIC FILE
+- The first before the request get into the index.php, laravel will search for the url of the static file first
+- Static file could be added in the public folder
+- What is the use of css and js that is inside the resources folder
+- It is for the compiled css and js so the size won't be too heavy
+- To do the compilation: ``` npm run prod ```
+
 
 
 
