@@ -432,6 +432,63 @@ Route::get("/hello-again", function () {
 - What is the use of css and js that is inside the resources folder
 - It is for the compiled css and js so the size won't be too heavy
 - To do the compilation: ``` npm run prod ```
+### ROUTE PARAMETER
+- Get data from the route parameter
+- Naming consensus: route/{routeParam}
+- How to get the routeParam: we can get it in closure function in route files
+```php
+
+Route::get("/products/{productId}", function ($productId){
+    return "products : " . $productId;
+});
+
+Route::get("/products/{product}/items/{items}", function ($productId, $itemId){
+    return "Products : " . $productId . ", Items : " . $itemId;
+});
+```
+#### REGEX CONSTRAINTS
+- using method where in Route::method function in route files
+- Method where has 2 parameter
+	- First is what parameter
+	- Second is the regex
+```php
+Route::get('/categories/{id}', function (string $categoryId){
+    return "Categories : " . $categoryId;
+})->where("id" , '[0-9]+');
+```
+#### OPTIONAL PARAMETER
+- Parameter is optional (not obliged)
+- To make the parameter optional, we should be giving the question mark "?" in the parameter
+- If parameter optional, then we should add the default value in the closure function
+- The default will be shown in the returned value of the closure function\
+```php
+Route::get('/users/{id?}', function (string $userId){
+    return "Users : " . $userId;
+});
+```
+#### CONFLICTING PARAMETER
+- Laravel will prioritize the first declared route 
+- Laravel won't give any errors
+```php
+
+Route::get("/conflict/johntakpor", function(){
+    return 'Conflict with Johntakpor';
+});
+
+Route::get("/conflict/{nameId}", function(string $nameId){
+    return "Conflict " . $nameId;
+});
+
+```
+- Unit Teset
+```php
+
+public function testConflict()
+{
+	$this->get('/conflict/budi')
+		->assertSeeText("Conflict budi");
+
+	$thi
 
 
 

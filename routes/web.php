@@ -36,3 +36,27 @@ Route::get("/hello-again", function () {
 Route::get("/hello-world", function () {
     return view("hello.world", [ "name" => "World"]);
 });
+
+Route::get("/products/{productId}", function ($productId){
+    return "products : " . $productId;
+});
+
+Route::get("/products/{product}/items/{items}", function ($productId, $itemId){
+    return "Products : " . $productId . ", Items : " . $itemId;
+});
+
+Route::get('/categories/{id}', function (string $categoryId){
+    return "Categories : " . $categoryId;
+})->where("id" , '[0-9]+');
+
+Route::get('/users/{id?}', function (string $userId){
+    return "Users : " . $userId;
+});
+
+Route::get("/conflict/johntakpor", function(){
+    return 'Conflict with Johntakpor';
+});
+
+Route::get("/conflict/{nameId}", function(string $nameId){
+    return "Conflict " . $nameId;
+});
