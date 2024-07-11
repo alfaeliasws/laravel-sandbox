@@ -488,7 +488,511 @@ public function testConflict()
 	$this->get('/conflict/budi')
 		->assertSeeText("Conflict budi");
 
-	$thi
+	$this->get('/conflict/johntakpor')
+		->assertSeeText("Conflict with Johntakpor");
+}
+
+```
+### NAMED ROUTE
+- We can name the route
+- Naming route means we can use the name even though then we change the details of the route (url, closure, etc)
+- We use function name()
+```php
+
+Route::get('/name/{id?}', function (string $id){
+    return "Name " . $id;
+})->name('user-name');
+
+Route::get('/category-name/{id?}', function (string $id){
+    return "Category Name " . $id;
+})->name('category-name');
+```
+- How to use it
+```php
+
+Route::get('/user-search/{id}', function ($id){
+    $link = route('user-name', [
+        "id" => $id
+    ]);
+    return "Link " . $link;
+});
+
+Route::get('/user-search-redirect/{id}', function($id){
+    return redirect()->route('user-name', [
+        'id' => $id
+    ]);
+});
+```
+### CONTROLLER
+- To make the app logic not in the route closure function, but in other space
+- Controller is a class 
+- Controller naming convention: YourController (change your with your desired name)
+- Controller folder is in App/Http/Controller
+- Use artisan to make it easier to create controller ```php artisan make:controller YourController```
+- To change the closure in route we can make function in controller, then we integrate that function to the route
+- To integrate with route, we use parameter array with controller and the function name
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+class HelloController extends Controller
+{
+    public function hello(): string
+    {
+        return "Hello World";
+    }
+}
+```
+Route Implementation:
+```php
+Route::get('/controller/hello', [HelloController::class, 'hello']);
+```
+Test
+```php
+    public function testHelloController()
+    {
+        $this->get("controller/hello")
+            ->assertSeeText("Hello World");
+    }
+```
+- Controller supports dependency injection
+- Controller is made by Service Container, and it is stored withing service container
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\HelloService;
+use Illuminate\Http\Request;
+
+class HelloController2 extends Controller
+{
+    private HelloService $helloService;
+
+    public function  __construct(HelloService $helloService)
+    {
+        $this->helloService = $helloService;
+    }
+
+    public function hello(string $name): string
+    {
+        return $this->helloService->hello($name);;
+    }
+}
+```
+Route Implementation
+```php
+Route::get('/controller/hello2/{name}', [HelloController2::class, 'hello']);
+```
+### REQUEST
+- Request is injected automatically to the controller class
+- Use it inside the function and it will run smoothly
+Implementation request on controller
+```php
+
+class HelloController3 extends Controller
+{
+    private HelloService $helloService;
+
+    public function  __construct(HelloService $helloService)
+    {
+        $this->helloService = $helloService;
+    }
+
+    public function hello(Request $request,  string $name): string
+    {
+        return $this->helloService->hello($name);;
+    }
+}
+```
+- Request has many methods and many usecase especially about the url 
+- Example:
+	- Path
+		- $request->path() to get the path from the url
+		- $request->url() to get url without query parameters
+		- $request->fullUrl() to get url with query parameters
+	- Method
+		- $request->method() to get HTTP method
+		- $request->isMethod(method) to check if the method is right 
+			- Example: $request->isMethod("post");
+	- Header
+		- $request->header(key) to get data header with key parameter
+		- $request->header(key, default) get key with default value to be returned
+		- request->bearerToken() it is used to get the information of token Bearer that is inside of Authorization header and automatically to delete the bearer prefix
+Controller Function
+```php
+
+    public function request(Request $request): string
+    {
+        return $request->path() . PHP_EOL . 
+            $request->url() . PHP_EOL . 
+            $request->method() . PHP_EOL .
+            $request->header("Accept") . PHP_EOL;
+    }
+}
+
+```
+Test
+```php
+   public function testRequest()
+    {
+        $this->get('controller/request', [
+            "Accept" => "plain/text"
+        ])->assertSeeText('controller/request')
+            ->assertSeeText("http://localhost/controller/request")
+            ->assertSeeText('GET')
+            ->assertSeeText('plain/text')
+        ;
+    }
+```
+### REQUEST InPUT
+- It doesn't matter from which method does the input comes from it can be get in laravel
+- We can use input(key, default) in Request. It will return the default value if the key is not present
+Controller Implementation
+```php
+
+class InputController extends Controller
+{
+
+    public function hello(Request $request): string 
+    {
+        $name = $request->input("name");
+        return "Hello " . $name;
+    }
+
+}
+```
+Route
+```php
+
+Route::get('/input/hello', [InputController::class, 'hello']);
+
+Route::post('/input/hello', [InputController::class, 'hello']);
+
+```
+Test
+```php
+
+    public function testInput()
+    {
+        $this->get('/input/hello?name=Johnson')->assertSeeText("Hello Johnson");
+        $this->post('/input/hello', ["name" => "Johnson"])->assertSeeText("Hello Johnson");
+    }
+
+```
+### NESTED INPUT
+- We can take the nested data just by using the . (dot)
+	- Example: $request->input('name.first')
+		- It is when the input is in the form of form or json
+Controller Function
+```php
+    public function helloFirst(Request $request): string
+    {
+        $firstName = $request->input("name.first");
+        return "Hello " . $firstName;
+    }
+```
+Test
+```php
+    public function testInputNested()
+    {
+        $this->post('/input/hello/first', ["name" => [
+            "first" => "Johnson",
+            "last" => "Songkali"
+        ]])->assertSeeText("Hello Johnson");
+    }
+```
+#### REQUEST PAGE EXPIRED
+- If there are PAGE EXPIRED error when we unit test we can use php artisan cache:clear and php artisan config:clear
+- If we use postman or any other services it will return PAGE EXPIRED
+	- It is because it is secured by the laravel
+	- We can turn it off first in Http/Kernel
+		- Then we can comment the Middleware/VerifyCsrfToken::class
+#### GET ALL INPUTS
+- Use input() method
+Controller
+```php
+
+    public function helloInput(Request $request): string
+    {
+        $input = $request->input();
+        return json_encode($input);
+    }
+
+```
+Test
+```php
+    public function testInputGetAll()
+    {
+        $this->post('/input/hello/input', ["name" => [
+            "first" => "Johnson",
+            "last" => "Songkali"
+        ]])->assertSeeText("name")->assertSeeText("first")->assertSeeText("Johnson")->assertSeeText("last")->assertSeeText("Songkali");
+    }
+```
+#### GET ARRAY INPUT
+- Get input value array
+	- We can use `$request->input('products.*.name')`, in that case we get all the name in array of products
+Controller
+```php
+    public function helloArray(Request $request): string
+    {
+        $names = $request->input('products.*.name');
+        return json_encode($names);
+    }
+```
+Test
+```php
+    public function testInputArray()
+    {
+        $this->post('/input/hello/array', ["products" => [
+            [
+                "name" => "Apple Mac Book Pro",
+                "price" => "20000000"
+            ],
+            [
+                "name" => "Samsung Galaxy S",
+                "price" => "18000000"
+            ]
+        ]])->assertSeeText("Apple Mac Book Pro")->assertSeeText("Samsung Galaxy S");
+    } 
+```
+#### INPUT QUERY
+- If we want to get only the data in query parameters then we should use `$request->query(key)`
+	- If we want to get all the data that is in query parameters then we should use `request->query()`
+#### DYNAMIC PROPERTY
+- If we use `$request->first_name` (equals `$request->input($first_name)`) then laravel will check if the request has a key that is first_name
+- It is more applicable to use input more than to use dynamic property
+### INPUT TYPE
+- Request object have features that makes the conversion of data type automatically
+- To make input type to boolean we can use `boolean(key, default)`
+- To make input type to date automatically we can use `date(key, pattern, timezone)`
+	- Laravel use Carbon library to manipulate the date type
+Controller
+```php
+
+    public function inputType(Request $request): string 
+    {
+        $name = $request->input('name');
+        $married = $request->input('married');
+        $birthDate = $request->input('birth_date', 'Y-m-d');
+
+        return json_encode([
+            "name" => $name,
+            "married" =>  $married,
+            "birthDate" => $birthDate->formate('Y-m-d')
+        ]);
+    }
+```
+#### FILTER REQUEsT INPUT
+- It is to prevent the code to execute key (js equivalent of property) that is not intended to be changed
+- There are methods in input request to choose and do exceptions of the keys that will be proceeded to the DB
+	- `$request->only([key1,key2])`
+	- `$request->except([key1,key2])`
+Controller
+```php
+
+    public function filterOnly(Request $request): string
+    {
+        $name = $request->only(['name.first', 'name.last']);
+        return json_encode($name);
+    }
+
+    public function filterExcept(Request $request): string
+    {
+        $user = $request->except(["admin"]);
+        return json_encode($user);
+    }
+```
+Test
+```php
+
+    public function testFilterOnly()
+    {
+        $this->post('input/filter-only', [
+            "name" => [
+                "first" =>  "Johntakpor",
+                "middle" => "Johnson",
+                "last" => "Songkali"
+            ]
+        ])->assertSeeText("Johntakpor")->assertSeeText("Songkali")->assertDontSeeText("Johnson");
+    }
+
+    public function testFilterExcept()
+    {
+        $this->post('input/filter-except', [
+            "username" => "Johnson",
+            "admin" => "true",
+            "password" => "rahasia" 
+        ])->assertSeeText("Johnson")->assertSeeText("rahasia")->assertDontSeeText("admin");
+    }
+```
+#### MERGE INPUT
+- We want to have default input value when the input is not inserted from the request, then we can use merge to add the input to the request
+- If there are the same key, it will be changed with the merge one using `merge(array)`
+- If there are the same key but we want to make the key from the request sustained we can use mergeIfMissing(array)
+Controller
+```php
+    public function testMerge()
+    {
+        $this->post('input/filter-merge', [
+            "username" => "Johnson",
+            "admin" => "true",
+            "password" => "rahasia" 
+        ])->assertSeeText("Johnson")->assertSeeText("rahasia")->assertSeeText("admin")->assertSeeText("false");
+    }
+```
+### FILE STORAGE
+- Laravel is using file storage of flysystem
+- We can save file to the file storage or change the target of the file storage itself
+	- It could be our own local storage or to amazon s3
+- Configuration in file storage exists in file config/filesystems.php
+	- We can modify the configuration of the file storage there (which file storage, etc)
+	- The default is local
+	- On the disks array are the type of the storage (local, public, s3)
+	- In links we can use our own "naming" using links and abstract the path that we want to use with that link
+- The implementation is using class taht is named FileSystem
+- To get the storage, we can use the Facade of `Storage::disk(fileStorageName)`
+Test
+```php
+
+    public function testStorage()
+    {
+        $filesystem = Storage::disk("local");
+        $filesystem->put("file.txt", "Put Your Control Here");
+
+        self::assertEquals("Put Your Control Here", $filesystem->get("file.txt"));
+    }
+```
+#### STORAGE LINK
+- By default, the file in storage/app can't be accessed
+- Laravel has Storage Link that link the storage/app/pubic to public/storage, so we can access the File Storage from the web/client
+- To make link we can use the command `php artisan storage:link`
+```php
+
+    public function testPublic()
+    {
+        $filesystem = Storage::disk("public");
+        $filesystem->put("file.txt", "Put Your Control Here");
+
+        self::assertEquals("Put Your Control Here", $filesystem->get("file.txt"));
+    }
+```
+### FILE UPLOAD
+- Laravel have method of file(key) in Request body to handle the file upload
+- File Upload data type is in the class of Illuminate\Http\UploadedFile in Laravel
+- File Upload in Laravel is integrated with File Storage
+- Method storePubliclyAs means we use the public type of the request store and the public of the last parameters eans we use public that is defined in file config
+- The first parameters of "pictures" means we want it in the folder named pictures
+Controller
+```php
+    public function upload(Request $request): string
+    {
+        $picture = $request->file("picture");
+        $picture->storePubliclyAs("pictures", $picture->getClientOriginalName(), "public");
+
+        return "OK " . $picture->getClientOriginalName();
+    }
+```
+ERROR: Error: Call to undefined function Illuminate\Http\Testing\imagecreatetruecolor()
+SOLUTION: extention gd in php.ini to be enabled
+Test
+```php
+    public function testUpload()
+    {
+        $image = UploadedFile::fake()->image("johnson.png");
+        $this->post('file/upload', [
+            "picture" => $image
+        ])->assertSeeText("OK : johnson.png");
+    }
+```
+### RESPONSe
+- We can return response too in laravel and there it is, the response object
+- In response class, we can modify HTTP Response of Body, Header, Cooke, etc
+- To create response object, we can use helper function of `response(content, status, headers)`
+Controller
+```php
+    public function response(Request $request): Response
+    {
+        return response("Hello Response");
+    }
+```
+Test
+```php
+    public function testResponse()
+    {
+        $this->get('response/hello')
+            ->assertStatus(200)
+            ->assertSeeText("Hello Response");
+    }
+```
+#### REsPONSE HEADER
+- We can use the default building response method (`response(content, status, headers)`) 
+- Or using the `withHeaders(arrayHeaders)` method to add headers
+- Or using `headers(key,value)`
+#### RESPONSE TYPE
+- To have view we can use the view method `view(name, data, status, header)`
+- To have response json we can use the `json(array,status,headers)`
+- To have response file we can use the `file(pathToFile,headers)`
+- To have response of download we can use the `download(pathToFile, name, headers)`
+Controller
+```php
+    
+    public function responseView(Request $request): Response
+    {
+        return response()
+            ->view('hello', ['name' => 'Johnson']);
+    }
+
+    public function responseJson(Request $request): JsonResponse
+    {
+        $body = ['firstName' => 'Johntakpor', 'lastName' => 'Songkali'];
+        return response()->json($body);
+    }
+
+    public function responseFile(Request $request): BinaryFileResponse
+    {
+        return response()->file(storage_path('app/public/pictures/johnson.png'));
+    }
+
+    public function responseDownload(Request $request): BinaryFileResponse
+    {
+        return response()->download(storage_path('app/public/pictures/johnson.png'), 'johnson.png');
+    }
+```
+Test
+```php
+	
+    public function testView()
+    {
+        $this->get('response/type/view')
+        ->assertSeeText('Hello Johnson');
+    }
+
+
+    public function testJson()
+    {
+        $this->get('response/type/json')
+        ->assertJson(
+            ['firstName' => 'Johntakpor', 'lastName' => 'Songkali']
+        );
+    }
+
+    public function testFile()
+    {
+        $this->get('response/type/file')
+            ->assertHeader('Content-Type', 'image/png');
+    }
+
+    public function testDownload()
+    {
+        $this->get('response/type/download')
+            ->assertDownload('johnson.png');
+    }
+```
 
 
 
