@@ -993,6 +993,554 @@ Test
             ->assertDownload('johnson.png');
     }
 ```
+### ENCRYPTION
+- Encryption should not be done manually or with other libraries
+- To encrypt, laravel needs keys
+- The key is saved in config/app.php
+- Laravel will get the key from environment APP_KEY
+- Update APP_KEY in .env in frequency
+- To update APP_KEY for encryption we could use `php artisan key:generate`
+- To do encrypt and decrypt we could use Facade class Crypt
+```php
+public function testEncryption()
+    {
+        $encrypt = Crypt::encrypt('Johntakpor Songkali');
+        $decrypt = Crypt::decrypt($encrypt);
+
+        self::assertEquals('Johntakpor Songkali', $decrypt);
+    }
+```
+### COOKIE
+- Cookie will be encrypted automatically
+- The encryption is located in App/Http/Middleware/EncryptCookies
+- We can modify the EncryptCookie property (except variable)
+- To create cookie we can use method `$cookie(name, value, timeout, path, domain, secure, httpOnly)` in Response object
+Controller
+```php
+
+    public function createCookie(): Response
+    {
+        return response('Hello Cookie')
+            ->cookie('User-Id', 'johntakpor', 1000, '/')
+            ->cookie('Is-Member', 'true', 1000, '/');
+    }
+
+```
+Test
+```php
+
+    public function testCreateCookie()
+    {
+        $this->get('cookies/set')
+            ->assertCookie('User-Id', 'jontakpor')
+            ->assertCookie('Is-Member', 'true');
+    }
+
+```
+#### RECEIVE COOKIE
+- After the cookie is given to the browser, browser will keep that cookie, until it is expired or timeout
+- Browser will send the request of renewing the cookie to the path that is set when creating cookie
+- We can get the cookie in request using `cookie(name, default)`
+- Or to get all cookies from array, we can use `$request->cookies->all()`
+- To receive cookie
+Controller
+```php
+
+    public function getCookie(Request $request): JsonResponse
+    {
+        return response()
+            ->json(
+                [
+                    'userId' => $request->cookie('User-Id', 'guest'),
+                    'isMember' => $request->cookie('Is-Member', 'false')
+                ]
+            );
+    }
+```
+Test
+```php
+    public function testGetCookie()
+    {
+        $this->withCookie('User-Id', 'johntakpor')
+            ->withCookie('Is-Member', 'true')
+            ->get('cookies/get')
+            ->assertJson([
+                'userId' => 'johntakpor',
+                'isMember' => 'true'
+            ]);
+    }
+```
+#### CLEAR COOKIE
+- There is no way to delete cookies
+- But we can make the cookie to have empty values and use he timeout as soon as possible
+- We can use the laravel method withoutCookie(), it makes the cookie expired and make the cookie not present from the cookie developer mode in browser
+Controller
+```php
+
+    public function clearCookie(Request $request): Response
+    {
+        return response('Clear Cookie')
+            ->withoutCookie('User-Id')
+            ->withoutCookie('Is-Member');
+    }
+
+```
+### REDIRECT
+- We can use `redirect(to)`
+Controller
+```php
+
+    public function redirectTo(): string
+    {
+        return "Redirect To";
+    }
+
+    public function redirectFrom(): RedirectResponse
+    {
+        return redirect('/redirect/to');
+    }
+```
+Test
+```php
+
+    public function testRedirect()
+    {
+        $this->get('/redirect/from')
+            ->assertRedirect('/redirect/to');
+    }
+```
+#### REDIRECT TO NAMED ROUTES
+- We can redirect to the route's name not to the actual route itself
+- It will make everything easy when there are changes in the actual route
+- We can use `route(name, params)` in RedirectResponse
+Controller
+```php
+
+    public function redirectName(): RedirectResponse
+    {
+        return redirect()->route('redirect-hello', ['name' => 'John',]);
+    }
+
+    public function redirectHello(string $name): string
+    {
+        return "Hello $name";
+    }
+
+```
+Route
+```php
+Route::get('/redirect/name', [RedirectController::class, 'redirectName']);
+
+Route::get('/redirect/name/{name}', [RedirectController::class, 'redirectHello'])->name("redirect-hello");
+```
+Test
+```php
+    public function testRedirectName()
+    {
+        $this->get('/redirect/name')
+            ->assertRedirect('/redirect/hello/John');
+    }
+```
+#### REdIRECT TO CONTROLLER ACTIOn
+- `action(controller, params)` in RedirectResponse
+Controller
+```php
+    public function redirectAction(): RedirectResponse
+    {
+        return redirect()->action([RedirectController::class, 'redirectHello'], ['name' => 'John']);
+    }
+```
+Test
+```php
+    public function testRedirectAction()
+    {
+        $this->get('/redirect/action')
+            ->assertRedirect('/redirect/name/John');
+    }
+```
+#### REDIRECT TO EXTERNAL DOMAIN
+- Laravel can only redirect to the same domain
+- If we want it to redirect to the other domain we should use `away(url)` in RedirectResponse
+```php
+//Controller
+
+    public function redirectAway(): RedirectResponse
+    {
+        return redirect()->away('https://alfaeliasws.netlify.app/');
+    }
+
+// Test
+
+    public function testRedirectAway()
+    {
+        $this->get('/redirect/away')
+            ->assertRedirect('https://alfaeliasws.netlify.app/');
+    }
+```
+### MIDDLEWARE
+- To do filtering of HTTP Request that is getting in 
+- Laravel use so many middleware, for example are cookie encryption, verification, CSRF, authentication
+- All middleware are saved in app/Http/Middleware
+- We can use multiple middleware
+- We can create middleware and we can use `php artisan make:middleware MiddlewareName`
+- Middleware is in the scope of dependency injection so we can use the dependency that we wants in the constructor if we wants it
+- Middleware is a simple class and only have method `handle(request, closure)` that will be called before it goes to the controller
+	- If we want to send it to the controller, we can use the closure parameter
+	- Or we can manipulate anything in the controller
+- Method `handle()` in middleware can return a response
+```php
+	//Middleware
+    public function handle(Request $request, Closure $next)
+    {
+        $apiKey = $request->header('X-API-KEY');
+        if($apiKey == "John"){
+            return $next($request);
+        } else {
+            return response('Access Denied', 401);
+        }
+    }
+```
+#### GLOBAL MIDDLEWARE
+- Middleware won't be executed by Laravel, we should register it to our apps
+- We can register it in many ways
+- First is when we want to register it as global middleware
+- Global means the middleware will get to be executed in every routes, we can register it in field `$middleware` in Http kernel
+```php
+//Http Kernel
+    protected $middleware = [
+        'example' => ExampleMiddleware::class
+```
+####  ROUTE MIDDLEWARE
+- We can assign middleware to the routes too, we can employ the middleware to the routes in groups or one by one
+- To registrate one by one we can use the middleware class directly or using the `$routeMiddleware` in Kernel class
+```php
+//Http Kernel
+    protected $routeMiddleware = [
+        'example' => ExampleMiddleware::class
+``` 
+- How to use middleware in routes after it is registered in kernel
+```php
+//web.php
+//Using alias
+Route::get('/middleware/api', function(){return "OK";})->middleware(['example']);
+
+//Not using alias
+Route::get('/middleware/api', function(){return "OK";})->middleware([ExampleMiddleware::class]);
+```
+#### GROUP MIDDLEWARE
+- We can make a middleware in groups also, so when we want to use it, we only mention the name
+- We can use the middleware groups in kernel file `$middlewareGroups` 
+```php
+    protected $middlewareGroups = [
+        'john' => [
+            ExampleMiddleware::class
+        ]
+```
+- The group can be used in RouteServiceProviders.php in boot function and define in which prefix does it start
+- To use in route file we can use it to be like this
+```php
+//Route
+Route::get('/middleware/group', function(){return "GROUP";})->middleware(['john']);
+
+//Test
+
+    public function testInvalidMiddlewareGroup()
+    {
+        $this->get('middleware/group')
+            ->assertStatus(401)
+            ->assertSeeText("Access Denied");
+    }
+
+    public function testValidMiddlewareGroup()
+    {
+        $this->withHeader('X-API-KEY', 'John')
+            ->get('middleware/group')
+            ->assertStatus(200)
+            ->assertSeeText("GROUP");
+    }
+```
+#### MIDDLEWARE PARAMETER
+- We can do dependency injection in middleware, but we can inject a simple parameter
+- Just use the `handle()` method, and add it after the `$next` parameter, and we can call the parameter by calling the middleware with `:`
+- If there are more than one parameter, use `,` 
+```php
+//Middlewawre method
+    public function handle(Request $request, Closure $next, string $key, int $status ){
+        $apiKey = $request->header('X-API-KEY');
+        if($apiKey == $key){
+            return $next($request);
+        } else {
+            return response('Access Denied', $status);
+        }
+    }
+//Route web.php
+Route::get('/middleware/group2', function(){return "GROUP";})->middleware(['param:john,401']);
+
+///Kernel
+
+     protected $middlewareGroups = [
+        'john' => [
+            ExampleMiddleware::class
+        ],
+        'param' => [
+            'param:john,401'
+        ],
+
+// ...
+
+// Kernel
+    protected $routeMiddleware = [
+        'param' => ExampleParamMiddleware::class,
+
+//Test
+    public function testInvalidMiddlewareGroupParam()
+    {
+        $this->get('middleware/group2')
+            ->assertStatus(401)
+            ->assertSeeText("Access Denied");
+    }
+
+    public function testValidMiddlewareGroupParam()
+    {
+        $this->withHeader('X-API-KEY', 'john')
+            ->get('middleware/group2')
+            ->assertStatus(200)
+            ->assertSeeText("GROUP");
+    }
+    //make sure that the header is the same as the parameter in kernel middlewareGroup and in route web.php
+
+```
+#### EXCLUDE MIDDLEWARE
+- If we want our route to run without middleware, we can use `withoutMiddleware()`
+```php
+Route::post('/file/upload/without', [FileController::class, 'upload' ])->withoutMiddleware([VerifyCsrfToken::class]);
+```
+### CSRF (CROSS SITE REQUEST FORGERY)
+- To make our domain accept request from other domains
+- To handle it is to make the request to have token, if it is valid, it can continue to have the access, if it isn't, it won't make our site couldn't be accessed
+- To create the token, laravel itself have the function of `csrf_token()`
+- Everytime we access a laravel website, it will run session that will save the csrf token
+- If we want to do post request, we should include it in our input
+- Laravel will check the input _token
+```blade.php
+// _
+<html>
+  <head>
+    <title>Say Hi</title>
+    <body>
+      <form action="/form" method="post">
+        <label for="name">
+          <input type="text" name="name">
+        </label>
+        <input type="submit" value="Say Hello">
+        <input type="hidden" value="_token" value={{csrf_token()}}>
+      </form>
+    </body>
+  </head>
+</html>
+```
+- In Ajax, just send the token using X-CSRF-TOKEN in header
+### ROUTE GROUP
+- We can group route to share the configuration across route inside that one group
+- It is easier than when we configure the route one by one
+- We can use the route prefix, so we can make route that having a same prefix easier
+- We can use function `Route::prefix(prefix)->group(closure)`
+```php
+Route::prefix('/response/type')->group(function(){
+    Route::get('/view', [ResponseController::class, 'responseView' ]);
+    Route::get('/json', [ResponseController::class, 'responseJson' ]);
+    Route::get('/file', [ResponseController::class, 'responseFile' ]);
+    Route::get('/download', [ResponseController::class, 'responseDownload' ]);
+});
+```
+### ROUTE MIDDLEWARE GROUP
+- We can group that is using the same middleware
+```php
+//web.php route
+Route::middleware(['param:john,401'])->group(function(){
+    Route::get('/middleware/group2', function(){ return "OK";});
+	// ... other functions
+});
+```
+### ROUTE CONTROLLER GROUP
+- We can group route that is using the same controller
+```php
+Route::controller(CookieController::class)->group(
+    function(){
+        Route::get('/coookies/set', 'createCookie');
+        Route::get('/coookies/get', 'getCookie');
+        Route::get('/coookies/clear', 'clearCookie');
+    }
+);
+```
+### ROUTE MULTIPLE GROUp
+- To do multiple of grouping
+```php
+// web.php route
+Route::middleware(['param:john,401'])->prefix('/middleware')->group(function () {
+    Route::get('/api3', function () {
+        return "OK";
+    });
+});
+
+// test
+    public function testInvalidMiddlewareGroupRoute()
+    {
+        $this->get('middleware/api3')
+            ->assertStatus(401)
+            ->assertSeeText("Access Denied");
+    }
+
+    public function testValidMiddleGroupRoute()
+    {
+        $this->withHeader('X-API-KEY', 'john')
+            ->get('middleware/api3')
+            ->assertStatus(200)
+            ->assertSeeText("OK");
+    }
+```
+### URL GENERATION
+- To create URL or link that can be used in view and response
+#### CURRENT URL
+- We can access current url in request object but there are times where there is no object request
+- We can use url helper or facade url
+- `url()->current()` for current url without query param
+- `url()->full()` for full url with query param
+```php
+//web.php route
+Route::get('/url/current', function(){return URL::full();});
+
+// test
+public function testCurrent()
+{
+	$this->get('/url/current?name=John')
+		->assertSeeText('/url/current?name=John');
+}
+
+```
+#### Named Routes
+- It can be used to create link from named routes
+- We can use route 
+	- `route(name, parameters)`
+	- `URL::route(name, parameters)`
+	- `url()->route(name, parameters)`
+```php
+//web.php route
+Route::get('/url/named', function(){return route('redirect-hello', ['name' => 'Justin']);});
+
+//test
+    public function testNamed()
+    {
+        $this->get('url/named')->assertSeeText('/redirect/name/Justin');
+    }
+```
+#### URL FOR CONTROLLER ACTION
+- Url generation can be used to create link to the controller action
+- We can use method of 
+	- `action(controllerAction, parameters)`
+	- `URL::action(controllerAction, parameters)`
+	- `url()->action(controllerAction, parameters)`
+```php
+// web.php route
+Route::get('/url/action', function(){    
+    return URL::action([FormViewController::class, 'form'], []);
+    // return url()->action([FormViewController::class, 'form'], []);
+    // return action([FormViewController::class, 'form'], []);
+});
+
+// test
+    public function testAction()
+    {
+        $this->get('url/action')->assertSeeText('/form');
+    }
+``` 
+### SESSION
+- Session is independent and because of Http is stateless, it won't get with any other request
+- Session is used to save data that is used by other requests, usually the store is stored inside the persistent storage
+- Laravel give abstraction layer for us to manage session, so there should be not using PHP session anymore
+- All configuration is in `config/session.php`
+	- Important in that file
+		- SESSION_DRIVER (default to where to store the session), it is stored in env with the same SESSION_DRIVER
+			- File: session will be saved in storage/framework/sessions
+			- Cookie: session will be stored in cookie with encryption
+			- Database: session will be stored in database
+			- Memcache/redis : session will be stored in the memory database
+			- Dynamodb: Session is stored in amazon dynamodb
+			- Array: session is stored in memory array
+		- SESSION_LIFETIME
+		- files: path of where the session will be stored in
+		- etc
+- Session is represented in interface Illuminate/Contracts/Session/Session
+- To get session we can use
+	- method `session` from request object
+	- helper method `session()`
+	- Facade `Session`
+- Method to manipulate data in session
+	- `put(key, value)` : save data with key and value
+	- `push(key, value)` : add data to the array of key value
+	- `pull(key, value)` : get data and delete the  data
+	- `increment(key, value)` : add value in session
+	- `decrement(key, value)` : decrease value in session
+	- `forget(key, value)` : delete a data in session
+	- `fluseh(key, value)` : delete all data in session
+	- `invalidate(key, value)`: delete all data and delete the session, then creating new empty session
+```php
+//controller
+
+  public function createSession(Request $request): string
+  {
+    $request->session()->put('userId', 'johntakpor');
+    $request->session()->put('isMember', 'true');
+
+    return "OK";
+  }
+
+//test
+    public function testCreateSession()
+    {
+        $this->get('/session/create')
+            ->assertSeeText("OK")
+            ->assertSessionHas("userId", "johntakpor")
+            ->assertSessionHas("isMember", "true");
+    }
+```
+- Get data in session
+	- `get(key, default)` : to get the value of stored key in session
+	- `all(key, default)` : to get all the data in the session
+	- `has(key)` : to check the data in session
+	- `missing(key)` : to check if the data is not present in the session
+	
+
+```php
+//controller
+  public function getSession(Request $request): string
+  {
+
+    $userId = $request->session()->get('userId', 'guest');
+    $isMember = $request->session()->get('isMember', 'false');
+
+    return "User Id : $userId, Is Member: $isMember";
+  }
+
+//test
+
+    public function testGetSession()
+    {
+        $this->withSession([
+            'userId' => 'johntakpor',
+            'isMember' => 'true',
+        ])->get('/session/get')
+        ->assertSeeText("johntakpor")->assertSeeText("true");
+    }
+    
+    public function testGetSessionFalse()
+    {
+        
+        $this->withSession([])->get('/session/get')
+        ->assertSeeText("guest")->assertSeeText("false");
+    }
+
+```
 
 
 
