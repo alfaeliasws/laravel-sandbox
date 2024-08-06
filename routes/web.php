@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ValidationException;
 use App\Http\Controllers\CookieController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\FormViewController;
@@ -210,4 +211,34 @@ Route::get('/url/action', function(){
 });
 
 Route::get('/session/create', [SessionController::class, 'createSession']);
+
 Route::get('/session/get', [SessionController::class, 'getSession']);
+
+Route::get('/error/sample', function(){throw new Exception("Sample Error");});
+
+Route::get('/error/manuale', function(){
+    report(new Exception("Manual Error Reporting"));
+    return "OK";
+});
+
+Route::get('/error/validation', function(){
+    throw new ValidationException("Validation Error");
+});
+
+Route::get('/abort/400-withoutpage', function(){
+    abort(400);
+});
+
+
+Route::get('/abort/400', function(){
+    abort(400, "Oow, Validation Error Happens!");
+});
+
+Route::get('/abort/401', function(){
+    abort(401);
+});
+
+Route::get('/abort/500', function(){
+    abort(500);
+});
+
